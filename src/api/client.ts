@@ -1,4 +1,6 @@
-const API_BASE_URL = '/api/v1';
+const rawBaseUrl = (import.meta.env.VITE_API_URL as string) || 'https://responsible-prosperity-production-ff62.up.railway.app';
+const cleanBaseUrl = rawBaseUrl.replace(/\/+$/, '');
+const API_BASE_URL = cleanBaseUrl.endsWith('/api/v1') ? cleanBaseUrl : `${cleanBaseUrl}/api/v1`;
 
 export class ApiError extends Error {
   status: number;
