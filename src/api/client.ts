@@ -1,4 +1,4 @@
-const rawBaseUrl = (import.meta.env.VITE_API_URL as string) || 'https://responsible-prosperity-production-ff62.up.railway.app';
+const rawBaseUrl = (import.meta.env.VITE_API_URL as string) || 'https://refreshing-recreation-production-85e2.up.railway.app';
 const cleanBaseUrl = rawBaseUrl.replace(/\/+$/, '');
 const API_BASE_URL = cleanBaseUrl.endsWith('/api/v1') ? cleanBaseUrl : `${cleanBaseUrl}/api/v1`;
 
@@ -28,7 +28,8 @@ export const removeToken = (): void => {
 
 export async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retries: number = 2
 ): Promise<T> {
   const token = getToken();
 
@@ -41,17 +42,37 @@ export async function apiFetch<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (networkError: any) {
+    if (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return apiFetch<T>(endpoint, options, retries - 1);
+    }
+    throw networkError;
+  }
+
+  // Handle transient server errors like 502 Bad Gateway during Railway container wake-ups
+  if ((response.status === 502 || response.status === 503 || response.status === 504) && retries > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return apiFetch<T>(endpoint, options, retries - 1);
+  }
 
   const contentType = response.headers.get('content-type');
   const isJson = contentType && contentType.includes('application/json');
   const data = isJson ? await response.json() : null;
 
   if (!response.ok) {
-    const errorMessage = data?.message || data?.error || `Request failed with status ${response.status}`;
+    const errorMessage =
+      data?.message ||
+      data?.error ||
+      (response.status === 502
+        ? 'Backend service is waking up (502 Bad Gateway). Please try again in a moment.'
+        : `Request failed with status ${response.status}`);
     throw new ApiError(errorMessage, response.status, data);
   }
 

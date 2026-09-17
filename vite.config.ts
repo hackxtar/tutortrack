@@ -22,7 +22,7 @@ export default defineConfig(() => {
       // Proxy API requests to the Express backend
       proxy: {
         '/api': {
-          target: 'https://responsible-prosperity-production-ff62.up.railway.app',
+          target: 'https://refreshing-recreation-production-85e2.up.railway.app',
           changeOrigin: true,
         },
       },

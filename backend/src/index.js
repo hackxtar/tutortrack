@@ -52,7 +52,7 @@ function startServer() {
   // Initialize database on startup
   getDatabase();
 
-  const server = app.listen(config.port, () => {
+  const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`
 ╔══════════════════════════════════════════════╗
 ║    🎓 TutorTrack API Server                  ║
