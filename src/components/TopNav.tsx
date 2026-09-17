@@ -8,13 +8,20 @@ interface TopNavProps {
 }
 
 export function TopNav({ onOpenQuickNote, onOpenNewFollowUp, searchQuery, onSearchChange }: TopNavProps) {
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
   return (
     <header className="fixed top-0 right-0 left-0 lg:left-64 h-16 bg-white/80 backdrop-blur-md z-40 border-b border-slate-200">
       <div className="w-full h-full px-4 lg:px-8 flex items-center justify-between relative">
         <div className="flex items-center gap-4">
           <div className="hidden lg:flex flex-col">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Teaching Workspace</span>
-            <span className="text-sm font-semibold text-slate-900">Thursday, Oct 24, 2024</span>
+            <span className="text-sm font-semibold text-slate-900">{currentDate}</span>
           </div>
         </div>
 

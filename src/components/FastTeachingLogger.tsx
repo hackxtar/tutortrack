@@ -1,24 +1,26 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, CalendarCheck, Clock, Edit, Check } from 'lucide-react';
+import { X, CalendarCheck, Clock, Edit, Check, Loader2, AlertCircle } from 'lucide-react';
+import { classNotesApi } from '../api/services';
 
 interface FastTeachingLoggerProps {
   isOpen: boolean;
   onClose: () => void;
   student: any;
-  onSave?: (data: any) => void;
+  onSaved?: () => void;
 }
 
-export function FastTeachingLogger({ isOpen, onClose, student, onSave }: FastTeachingLoggerProps) {
+export function FastTeachingLogger({ isOpen, onClose, student, onSaved }: FastTeachingLoggerProps) {
   const [duration, setDuration] = useState('60m');
-  const [performance, setPerformance] = useState('Good');
+  const [performance, setPerformance] = useState<'Excellent' | 'Good Understanding' | 'Needs Practice' | 'Struggling'>('Good Understanding');
   const [topic, setTopic] = useState('Definite Integrals - Area Under Curves');
   const [homework, setHomework] = useState('Complete NCERT Exercise 7.4 Q1-12; practice substitution theorem');
   const [tutorNote, setTutorNote] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (student) {
+    if (student?.course) {
       if (student.course.includes('Physics')) {
         setTopic('Mechanics - Work, Energy & Power Review');
         setHomework('Exercise 4.2 numericals 1 through 8');
@@ -37,21 +39,41 @@ export function FastTeachingLogger({ isOpen, onClose, student, onSave }: FastTea
     setTopic(prev => prev ? `${prev}, ${cleanTag}` : cleanTag);
   };
 
-  const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => {
-      setIsSaved(false);
+  const handleSave = async () => {
+    if (!student?.id) {
+      setError('No student selected for note');
+      return;
+    }
+    if (!topic.trim()) {
+      setError('Topic is required');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const subject = student.course ? student.course.split('&')[0].trim() : 'General';
+
+      await classNotesApi.create({
+        studentId: student.id,
+        topic,
+        understanding: performance,
+        duration,
+        subject,
+        homework,
+        tutorNote,
+      });
+
       onClose();
-      if (onSave) {
-        onSave({
-          duration,
-          performance,
-          topic,
-          homework,
-          tutorNote,
-        });
+      if (onSaved) {
+        onSaved();
       }
-    }, 600);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save class note');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,7 +102,7 @@ export function FastTeachingLogger({ isOpen, onClose, student, onSave }: FastTea
                   <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Fast Teaching Logger</span>
                 </div>
                 <h2 className="font-['Plus_Jakarta_Sans'] font-bold text-xl text-slate-900 flex items-center gap-2">
-                  📝 New Class Note — {student?.name}
+                  📝 New Class Note — {student?.name || 'Student'}
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">{student?.grade} • Fill in essential details in under 30 seconds.</p>
               </div>
@@ -96,13 +118,19 @@ export function FastTeachingLogger({ isOpen, onClose, student, onSave }: FastTea
             
             {/* Modal Body */}
             <div className="px-6 py-5 overflow-y-auto flex flex-col gap-6">
-              
+              {error && (
+                <div className="p-3 rounded-lg bg-rose-50 border border-rose-100 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
                  <div className="flex-1 bg-white p-3 rounded-lg shadow-xs flex items-center gap-3">
                     <CalendarCheck className="w-5 h-5 text-indigo-600" />
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Session Date</span>
-                      <span className="text-sm font-semibold text-slate-900">Today, Oct 24, 2024</span>
+                      <span className="text-sm font-semibold text-slate-900">Today</span>
                     </div>
                  </div>
                  <div className="flex-1 bg-white p-3 rounded-lg shadow-xs flex items-center justify-between">
@@ -163,17 +191,17 @@ export function FastTeachingLogger({ isOpen, onClose, student, onSave }: FastTea
                   <label className="text-sm font-semibold text-slate-900">Student Performance</label>
                   <span className="text-emerald-600 text-xs font-medium">
                     {performance === 'Excellent' ? 'Superb focus & problem retention' :
-                     performance === 'Good' ? 'Solid grasp, active retention' :
-                     performance === 'Needs Revision' ? 'Concept clear, numerical practice needed' :
+                     performance === 'Good Understanding' ? 'Solid grasp, active retention' :
+                     performance === 'Needs Practice' ? 'Concept clear, numerical practice needed' :
                      'High difficulty, repeat session recommended'}
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-3">
                   {[
-                    { id: 'Excellent', icon: '🌟', label: 'Excellent' },
-                    { id: 'Good', icon: '✅', label: 'Good' },
-                    { id: 'Needs Revision', icon: '⚠️', label: 'Needs Revision' },
-                    { id: 'Struggling', icon: '❌', label: 'Struggling' },
+                    { id: 'Excellent' as const, icon: '🌟', label: 'Excellent' },
+                    { id: 'Good Understanding' as const, icon: '✅', label: 'Good' },
+                    { id: 'Needs Practice' as const, icon: '⚠️', label: 'Needs Practice' },
+                    { id: 'Struggling' as const, icon: '❌', label: 'Struggling' },
                   ].map(p => (
                     <button 
                       key={p.id}
@@ -232,12 +260,12 @@ export function FastTeachingLogger({ isOpen, onClose, student, onSave }: FastTea
                </button>
                <button 
                  type="button"
-                 disabled={isSaved}
+                 disabled={loading}
                  onClick={handleSave} 
-                 className="px-5 h-11 rounded-lg bg-indigo-600 text-white font-semibold text-sm shadow-xs hover:bg-indigo-700 transition-colors flex items-center gap-2 cursor-pointer"
+                 className="px-5 h-11 rounded-lg bg-indigo-600 text-white font-semibold text-sm shadow-xs hover:bg-indigo-700 transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
                >
-                 {isSaved ? <Check className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                 <span>{isSaved ? 'Note Saved!' : 'Save Class Note'}</span>
+                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit className="w-4 h-4" />}
+                 <span>{loading ? 'Saving...' : 'Save Class Note'}</span>
                </button>
             </div>
           </motion.div>
@@ -246,3 +274,4 @@ export function FastTeachingLogger({ isOpen, onClose, student, onSave }: FastTea
     </AnimatePresence>
   );
 }
+

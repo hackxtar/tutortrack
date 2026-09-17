@@ -11,6 +11,7 @@ interface LayoutProps {
   onOpenNewFollowUp?: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  onLogout?: () => void;
 }
 
 export function AppLayout({ 
@@ -21,10 +22,11 @@ export function AppLayout({
   onOpenNewFollowUp,
   searchQuery,
   onSearchChange,
+  onLogout,
 }: LayoutProps) {
   return (
     <div className="min-h-screen bg-slate-50 font-['Inter'] pb-16 lg:pb-0">
-      <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+      <Sidebar currentView={currentView} setCurrentView={setCurrentView} onLogout={onLogout} />
       <div className="lg:pl-64 flex flex-col min-h-screen">
         <TopNav 
           onOpenQuickNote={onOpenQuickNote}

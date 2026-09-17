@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { CheckCircle2, Globe } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { CheckCircle2, Globe, AlertCircle, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { authApi } from '../api/services';
+import { setToken } from '../api/client';
 
 interface AuthProps {
   onLogin: () => void;
@@ -8,6 +10,30 @@ interface AuthProps {
 
 export function Auth({ onLogin }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('amit.sharma@tutortrack.app');
+  const [password, setPassword] = useState('SecurePassword123!');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await authApi.login({ email, password });
+      if (res.success && res.token) {
+        setToken(res.token);
+        onLogin();
+      } else {
+        setError('Invalid credentials');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Login failed. Please check credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 font-['Inter'] flex flex-col lg:flex-row">
@@ -21,7 +47,7 @@ export function Auth({ onLogin }: AuthProps) {
             T
           </div>
           <span className="font-['Plus_Jakarta_Sans'] font-bold text-xl tracking-tight">TutorTrack</span>
-          <span className="bg-white/20 text-xs font-semibold px-2 py-0.5 rounded">Auth MVP</span>
+          <span className="bg-white/20 text-xs font-semibold px-2 py-0.5 rounded">Live Workspace</span>
         </div>
 
         <div className="relative z-10 my-16 space-y-6">
@@ -70,7 +96,7 @@ export function Auth({ onLogin }: AuthProps) {
           {/* Tab Switcher */}
           <div className="flex rounded-lg bg-slate-100 p-1">
             <button
-              onClick={() => setIsLogin(true)}
+              onClick={() => { setIsLogin(true); setError(null); }}
               className={`flex-1 py-2 text-center rounded-md text-sm font-semibold transition-all ${
                 isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
@@ -78,7 +104,7 @@ export function Auth({ onLogin }: AuthProps) {
               Sign In
             </button>
             <button
-              onClick={() => setIsLogin(false)}
+              onClick={() => { setIsLogin(false); setError(null); }}
               className={`flex-1 py-2 text-center rounded-md text-sm font-semibold transition-all ${
                 !isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
@@ -93,6 +119,13 @@ export function Auth({ onLogin }: AuthProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
+            {error && (
+              <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-500" />
+                <span>{error}</span>
+              </div>
+            )}
+
             {isLogin ? (
               <div className="space-y-6">
                 <div>
@@ -100,131 +133,89 @@ export function Auth({ onLogin }: AuthProps) {
                   <p className="text-slate-500 mt-2">Sign in to access your teaching workspace and follow-ups.</p>
                 </div>
 
-                <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
+                <form className="space-y-5" onSubmit={handleSubmit}>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email or Phone Number</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
                     <input
-                      type="text"
-                      placeholder="name@example.com or +91..."
+                      type="email"
+                      placeholder="amit.sharma@tutortrack.app"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
                     />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-sm font-semibold text-slate-700">Password</label>
-                      <a href="#" className="text-xs font-medium text-indigo-600 hover:underline">Forgot password?</a>
                     </div>
                     <input
                       type="password"
                       placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
                     />
-                  </div>
-                  
-                  <div className="flex items-center gap-2 pt-1">
-                    <input type="checkbox" id="remember" className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
-                    <label htmlFor="remember" className="text-sm text-slate-600">Remember me for 30 days</label>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full h-11 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center mt-2"
+                    disabled={loading}
+                    className="w-full h-11 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-60"
                   >
-                    Sign In
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Sign In</span>}
                   </button>
                 </form>
 
-                <div className="relative flex py-2 items-center">
-                  <div className="flex-grow border-t border-slate-200"></div>
-                  <span className="flex-shrink mx-4 text-sm text-slate-400">Or continue with</span>
-                  <div className="flex-grow border-t border-slate-200"></div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={onLogin}
-                  className="w-full h-11 rounded-lg bg-white text-slate-700 font-medium flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                  <Globe className="w-5 h-5 text-slate-500" />
-                  Continue with Google
-                </button>
-
                 <p className="text-center text-sm text-slate-500 mt-8">
-                  Don't have an account?{' '}
-                  <button onClick={() => setIsLogin(false)} className="text-indigo-600 font-semibold hover:underline">
-                    Register here.
-                  </button>
+                  Demo Credentials: <strong className="text-slate-700 font-mono">amit.sharma@tutortrack.app</strong> / <strong className="text-slate-700 font-mono">SecurePassword123!</strong>
                 </p>
               </div>
             ) : (
               <div className="space-y-6">
                 <div>
                   <h2 className="font-['Plus_Jakarta_Sans'] font-bold text-3xl text-slate-900 tracking-tight">Start your TutorTrack workspace</h2>
-                  <p className="text-slate-500 mt-2">Set up your free coaching tracker in under 60 seconds.</p>
+                  <p className="text-slate-500 mt-2">Sign in using seeded educator credentials to access workspace.</p>
                 </div>
 
-                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
+                <form className="space-y-4" onSubmit={handleSubmit}>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Full Name</label>
                     <input
                       type="text"
-                      placeholder="Amit Sharma"
-                      required
-                      className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      value="Amit Sharma"
+                      readOnly
+                      className="w-full h-11 px-3 rounded-lg bg-slate-100 border border-slate-200 text-sm text-slate-700 cursor-not-allowed"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
                     <input
                       type="email"
-                      placeholder="amit@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                       className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Mobile Number</label>
-                      <input
-                        type="tel"
-                        placeholder="+91 98765..."
-                        required
-                        className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Primary Role</label>
-                      <select className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700">
-                        <option>Independent Tutor</option>
-                        <option>Coaching Center Owner</option>
-                        <option>Assistant Teacher</option>
-                      </select>
-                    </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Create Password</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
                     <input
                       type="password"
-                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       required
                       className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                  </div>
-                  
-                  <div className="flex items-start gap-2 pt-2">
-                    <input type="checkbox" id="terms" required className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
-                    <label htmlFor="terms" className="text-sm text-slate-600 leading-tight">
-                      I agree to the <a href="#" className="text-indigo-600 hover:underline">Terms of Service</a> and <a href="#" className="text-indigo-600 hover:underline">Privacy Policy</a>.
-                    </label>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full h-11 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center mt-4"
+                    disabled={loading}
+                    className="w-full h-11 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center gap-2 mt-4 cursor-pointer disabled:opacity-60"
                   >
-                    Create Free Account
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Sign In as Amit Sharma</span>}
                   </button>
                 </form>
 
@@ -246,3 +237,4 @@ export function Auth({ onLogin }: AuthProps) {
     </div>
   );
 }
+

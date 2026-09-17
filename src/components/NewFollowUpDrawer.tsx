@@ -1,52 +1,92 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar, Clock, Check, Sparkles } from 'lucide-react';
-import { mockStudents } from '../data';
+import { X, Calendar, Clock, Check, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { Student } from '../types';
+import { studentsApi, followUpsApi } from '../api/services';
 
 interface NewFollowUpDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave?: (followUp: any) => void;
+  onSaved?: () => void;
   defaultStudentId?: string;
+  students?: Student[];
 }
 
-export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }: NewFollowUpDrawerProps) {
+export function NewFollowUpDrawer({ isOpen, onClose, onSaved, defaultStudentId, students: propStudents }: NewFollowUpDrawerProps) {
+  const [studentsList, setStudentsList] = useState<Student[]>(propStudents || []);
   const [studentId, setStudentId] = useState(defaultStudentId || '');
   const [parentPhone, setParentPhone] = useState('');
-  const [dueDate, setDueDate] = useState('2024-10-24');
+  const [dueDate, setDueDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [dueTime, setDueTime] = useState('16:00');
   const [objective, setObjective] = useState('');
   const [draftMessage, setDraftMessage] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (propStudents && propStudents.length > 0) {
+        setStudentsList(propStudents);
+      } else {
+        studentsApi.list().then(res => {
+          if (res.data) setStudentsList(res.data);
+        }).catch(() => {});
+      }
+    }
+  }, [isOpen, propStudents]);
+
+  useEffect(() => {
+    if (defaultStudentId) {
+      setStudentId(defaultStudentId);
+    }
+  }, [defaultStudentId]);
 
   const handleStudentChange = (id: string) => {
     setStudentId(id);
-    const found = mockStudents.find(s => s.id === id);
+    const found = studentsList.find(s => s.id === id);
     if (found) {
-      setParentPhone(found.parentPhone);
-      setDraftMessage(`Hi ${found.parentName}, Amit here from TutorTrack regarding ${found.name}'s upcoming classes...`);
+      setParentPhone(found.parentPhone || '');
+      setDraftMessage(`Hi ${found.parentName || 'Parent'}, Amit here from TutorTrack regarding ${found.name}'s upcoming classes...`);
     } else {
       setParentPhone('');
     }
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
+    if (!studentId) {
+      setError('Please select a student');
+      return;
+    }
+    if (!objective.trim()) {
+      setError('Objective is required');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await followUpsApi.create({
+        studentId,
+        dueDate,
+        dueTime,
+        objective,
+        parentPhone,
+        draftMessage,
+      });
+
       onClose();
-      if (onSave) {
-        onSave({
-          studentId,
-          parentPhone,
-          dueDate,
-          dueTime,
-          objective,
-          draftMessage,
-        });
+      setObjective('');
+      setDraftMessage('');
+      if (onSaved) {
+        onSaved();
       }
-    }, 600);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to create follow-up task');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -82,7 +122,7 @@ export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }:
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -90,16 +130,24 @@ export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }:
 
               {/* Body */}
               <form id="followup-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+                {error && (
+                  <div className="p-3 rounded-lg bg-rose-50 border border-rose-100 text-rose-700 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
                 {/* Select Student */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Select Student</label>
+                  <label className="text-xs font-semibold text-slate-700">Select Student *</label>
                   <select
+                    required
                     value={studentId}
                     onChange={(e) => handleStudentChange(e.target.value)}
                     className="h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                   >
                     <option value="">Select a student...</option>
-                    {mockStudents.map((s) => (
+                    {studentsList.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name} ({s.course} • {s.grade})
                       </option>
@@ -122,10 +170,11 @@ export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }:
                 {/* Due Date & Time */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Due Date</label>
+                    <label className="text-xs font-semibold text-slate-700">Due Date *</label>
                     <div className="relative">
                       <input
                         type="date"
+                        required
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
                         className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
@@ -147,9 +196,10 @@ export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }:
 
                 {/* Follow-up Objective */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Follow-up Objective</label>
+                  <label className="text-xs font-semibold text-slate-700">Follow-up Objective *</label>
                   <textarea
                     rows={3}
+                    required
                     value={objective}
                     onChange={(e) => setObjective(e.target.value)}
                     placeholder="What needs to be addressed or reminded?"
@@ -164,12 +214,12 @@ export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }:
                     <button
                       type="button"
                       onClick={() => {
-                        const student = mockStudents.find(s => s.id === studentId);
+                        const student = studentsList.find(s => s.id === studentId);
                         if (student) {
-                          setDraftMessage(`Hi ${student.parentName}, Amit here from TutorTrack. Hope you're having a good day! Just a gentle reminder regarding ${student.name}'s upcoming session.`);
+                          setDraftMessage(`Hi ${student.parentName || 'Parent'}, Amit here from TutorTrack. Hope you're having a good day! Just a gentle reminder regarding ${student.name}'s upcoming session.`);
                         }
                       }}
-                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700"
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
                     >
                       Use template
                     </button>
@@ -189,11 +239,11 @@ export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }:
                 <button
                   type="submit"
                   form="followup-form"
-                  disabled={isSuccess}
-                  className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold text-sm rounded-lg shadow-sm shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+                  disabled={loading}
+                  className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold text-sm rounded-lg shadow-sm shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>{isSuccess ? 'Follow-up Created!' : 'Create Scheduled Follow-up'}</span>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{loading ? 'Creating...' : 'Create Scheduled Follow-up'}</span>
                 </button>
               </div>
             </motion.div>
@@ -203,3 +253,4 @@ export function NewFollowUpDrawer({ isOpen, onClose, onSave, defaultStudentId }:
     </AnimatePresence>
   );
 }
+

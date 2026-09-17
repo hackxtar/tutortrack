@@ -1,0 +1,25 @@
+{
+  "name": "tutortrack-backend",
+  "version": "1.0.0",
+  "description": "TutorTrack REST API backend — Express.js + SQLite",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "db:seed": "node src/db/seed.js",
+    "db:reset": "node -e \"require('fs').unlinkSync('./tutortrack.db')\" 2>nul & node src/db/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "better-sqlite3": "^11.7.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "uuid": "^11.1.0",
+    "express-validator": "^7.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

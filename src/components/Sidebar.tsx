@@ -1,15 +1,34 @@
+import { useState, useEffect } from 'react';
 import { Home, Users, MessageSquare, Settings, LogOut } from 'lucide-react';
+import { tutorApi, followUpsApi } from '../api/services';
+import { TutorProfile } from '../types';
 
 interface SidebarProps {
   currentView: string;
   setCurrentView: (view: string) => void;
+  onLogout?: () => void;
 }
 
-export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
+export function Sidebar({ currentView, setCurrentView, onLogout }: SidebarProps) {
+  const [profile, setProfile] = useState<TutorProfile | null>(null);
+  const [activeFollowUpsCount, setActiveFollowUpsCount] = useState<number>(0);
+
+  useEffect(() => {
+    tutorApi.getProfile().then(res => {
+      if (res.data) setProfile(res.data);
+    }).catch(() => {});
+
+    followUpsApi.list().then(res => {
+      if (res.data) {
+        setActiveFollowUpsCount(res.data.filter(f => !f.isDone).length);
+      }
+    }).catch(() => {});
+  }, [currentView]);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, count: 0 },
     { id: 'students', label: 'Students', icon: Users, count: 0 },
-    { id: 'followups', label: 'Follow-ups', icon: MessageSquare, count: 3 },
+    { id: 'followups', label: 'Follow-ups', icon: MessageSquare, count: activeFollowUpsCount },
     { id: 'settings', label: 'Settings', icon: Settings, count: 0 },
   ];
 
@@ -70,13 +89,13 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
             <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
           </div>
           <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-sm text-slate-900 truncate">Amit Sharma</span>
-            <span className="text-xs text-slate-500 truncate">Math & Science</span>
+            <span className="font-semibold text-sm text-slate-900 truncate">{profile?.name || 'Tutor'}</span>
+            <span className="text-xs text-slate-500 truncate">{profile?.subjects || 'Workspace'}</span>
           </div>
         </div>
         <button 
-          onClick={() => setCurrentView('auth')}
-          className="w-full mt-2 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+          onClick={() => onLogout ? onLogout() : setCurrentView('auth')}
+          className="w-full mt-2 flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
           <span>Sign Out</span>

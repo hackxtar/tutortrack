@@ -8,9 +8,13 @@ import { FollowUps, Settings } from './pages/FollowUpsSettings';
 import { AddStudentModal } from './components/AddStudentModal';
 import { NewFollowUpDrawer } from './components/NewFollowUpDrawer';
 import { FastTeachingLogger } from './components/FastTeachingLogger';
-import { mockStudents } from './data';
+import { studentsApi } from './api/services';
+import { Student } from './types';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    !!localStorage.getItem('tutortrack_token')
+  );
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
@@ -19,13 +23,21 @@ export default function App() {
   const [isNewFollowUpOpen, setIsNewFollowUpOpen] = useState(false);
   const [followUpStudentId, setFollowUpStudentId] = useState<string | undefined>(undefined);
   const [isFastNoteOpen, setIsFastNoteOpen] = useState(false);
-  const [fastNoteStudent, setFastNoteStudent] = useState<any>(mockStudents[0]);
+  const [fastNoteStudent, setFastNoteStudent] = useState<Student | null>(null);
 
-  // Students roster state
-  const [students, setStudents] = useState(mockStudents);
+  // Trigger re-fetches across active views
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => setRefreshKey(k => k + 1);
 
   const handleLogin = () => {
+    setIsAuthenticated(true);
     setCurrentView('dashboard');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('tutortrack_token');
+    setIsAuthenticated(false);
   };
 
   const navigateToStudent = (id: string) => {
@@ -38,11 +50,18 @@ export default function App() {
     setCurrentView('students');
   };
 
-  const handleOpenQuickNoteFromTop = () => {
-    const defaultStudent = selectedStudentId 
-      ? students.find(s => s.id === selectedStudentId) || students[0]
-      : students[0];
-    setFastNoteStudent(defaultStudent);
+  const handleOpenQuickNoteFromTop = async () => {
+    try {
+      const res = await studentsApi.list();
+      if (res.data && res.data.length > 0) {
+        const defaultStudent = selectedStudentId 
+          ? res.data.find((s: Student) => s.id === selectedStudentId) || res.data[0]
+          : res.data[0];
+        setFastNoteStudent(defaultStudent);
+      }
+    } catch {
+      // Ignore fallback
+    }
     setIsFastNoteOpen(true);
   };
 
@@ -51,27 +70,7 @@ export default function App() {
     setIsNewFollowUpOpen(true);
   };
 
-  const handleAddNewStudent = (studentData: any) => {
-    const newStudent = {
-      id: `${students.length + 1}`,
-      name: studentData.name,
-      grade: studentData.grade,
-      course: studentData.course,
-      teacher: 'Amit Sharma',
-      parentName: studentData.parentName || 'Parent',
-      parentPhone: studentData.parentPhone || '+91 99999 00000',
-      schedule: studentData.schedule || 'Mon, Wed • 5:00 PM',
-      status: 'Active',
-      nextFollowUp: 'Tomorrow, 4:00 PM',
-      followUpStatus: 'upcoming',
-      avatarColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-      initials: studentData.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
-      attendance: 100,
-    };
-    setStudents([newStudent, ...students]);
-  };
-
-  if (currentView === 'auth') {
+  if (!isAuthenticated) {
     return <Auth onLogin={handleLogin} />;
   }
 
@@ -82,9 +81,11 @@ export default function App() {
         setCurrentView={setCurrentView}
         onOpenQuickNote={handleOpenQuickNoteFromTop}
         onOpenNewFollowUp={() => handleOpenFollowUpWithStudent()}
+        onLogout={handleLogout}
       >
         {currentView === 'dashboard' && (
           <Dashboard 
+            refreshKey={refreshKey}
             onOpenAddStudent={() => setIsAddStudentOpen(true)}
             onOpenAddFollowUp={() => handleOpenFollowUpWithStudent()}
             onNavigateToStudent={navigateToStudent}
@@ -92,6 +93,7 @@ export default function App() {
         )}
         {currentView === 'students' && (
           <StudentsDirectory 
+            refreshKey={refreshKey}
             onNavigateToStudent={navigateToStudent} 
             onOpenAddStudent={() => setIsAddStudentOpen(true)}
             onOpenFollowUpForStudent={(id) => handleOpenFollowUpWithStudent(id)}
@@ -100,37 +102,41 @@ export default function App() {
         {currentView === 'student_detail' && selectedStudentId && (
           <StudentDetail 
             studentId={selectedStudentId} 
-            onBack={navigateBackToDirectory} 
+            refreshKey={refreshKey}
+            onBack={navigateBackToDirectory}
           />
         )}
         {currentView === 'followups' && (
           <FollowUps 
+            refreshKey={refreshKey}
             onOpenNewFollowUp={() => handleOpenFollowUpWithStudent()}
             onNavigateToStudent={navigateToStudent}
           />
         )}
-        {currentView === 'settings' && <Settings />}
+        {currentView === 'settings' && <Settings onLogout={handleLogout} />}
       </AppLayout>
 
       {/* Add Student Modal */}
       <AddStudentModal
         isOpen={isAddStudentOpen}
         onClose={() => setIsAddStudentOpen(false)}
-        onAddStudent={handleAddNewStudent}
+        onSaved={handleRefresh}
       />
 
-      {/* New Follow-up Slide-over Drawer (Image 1) */}
+      {/* New Follow-up Slide-over Drawer */}
       <NewFollowUpDrawer
         isOpen={isNewFollowUpOpen}
         onClose={() => setIsNewFollowUpOpen(false)}
         defaultStudentId={followUpStudentId}
+        onSaved={handleRefresh}
       />
 
-      {/* Fast Teaching Logger (Image 2) */}
+      {/* Fast Teaching Logger */}
       <FastTeachingLogger
         isOpen={isFastNoteOpen}
         onClose={() => setIsFastNoteOpen(false)}
         student={fastNoteStudent}
+        onSaved={handleRefresh}
       />
     </>
   );
