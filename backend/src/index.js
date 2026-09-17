@@ -15,7 +15,12 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const app = express();
 
 // ── Core Middleware ──────────────────────────────────────────────
-app.use(cors({ origin: config.corsOrigin, credentials: true }));
+app.use(
+  cors({
+    origin: config.corsOrigin === '*' ? true : (config.corsOrigin || true),
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // ── Health Check ─────────────────────────────────────────────────

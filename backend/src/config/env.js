@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const config = {
   port: parseInt(process.env.PORT, 10) || 5000,
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  corsOrigin: process.env.CORS_ORIGIN || '*',
   jwt: {
     secret: process.env.JWT_SECRET || 'tutortrack-dev-secret',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
