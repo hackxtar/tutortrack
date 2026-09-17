@@ -4,6 +4,7 @@ const config = require('./config/env');
 const { getDatabase, closeDatabase } = require('./db/database');
 const { errorHandler } = require('./middleware/errorHandler');
 
+
 // Route imports
 const authRoutes = require('./routes/auth.routes');
 const tutorRoutes = require('./routes/tutor.routes');
